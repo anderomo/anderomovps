@@ -31,6 +31,28 @@ jobs:
       run: |
         pip install psutil
 
+    - name: Prepare SOCKS5 Proxy Script
+      shell: pwsh
+      run: |
+        # مسیر فایل متنی تو پوشه Downloads
+        $filePath = "C:\Users\runneradmin\Downloads\setup-proxy.txt"
+        # دستورات PowerShell برای راه‌اندازی پروکسی SOCKS5
+        $scriptContent = @"
+# تغییر مسیر به پوشه Downloads
+Set-Location -Path "C:\Users\runneradmin\Downloads"
+
+# دانلود سرور پروکسی SOCKS5
+Invoke-WebRequest -Uri 'https://github.com/serjs/socks5-server/releases/download/v1.0.0/socks5-server-windows-amd64.exe' -OutFile 'socks5-server.exe'
+
+# اجرای سرور پروکسی SOCKS5 روی پورت 1080 تو پس‌زمینه
+Start-Process -FilePath "socks5-server.exe" -ArgumentList "--port 1080" -NoNewWindow -PassThru
+
+Write-Output "SOCKS5 proxy is running on port 1080"
+"@
+        # ذخیره دستورات تو فایل متنی
+        Set-Content -Path $filePath -Value $scriptContent
+        Write-Output "Proxy setup script created at $filePath"
+
     - name: Create TCP tunnel with Bore
       shell: pwsh
       run: |
@@ -49,7 +71,6 @@ jobs:
           if ($log -match "listening at bore.pub:(\d+)") {
             $port = $matches[1]
             Write-Output "Tunnel is active at bore.pub:$port"
-            # صبر کردن تا فرآیند Bore قطع بشه
             $process.WaitForExit()
             Write-Output "Bore process exited, restarting..."
           } else {
@@ -58,15 +79,3 @@ jobs:
           }
           Start-Sleep -Seconds 5
         }
-
-    - name: Run loop script to Keep Server Online
-      shell: cmd
-      run: |
-        REM ساخت فایل run-loop.bat
-        echo @echo off > run-loop.bat
-        echo pip install psutil --quiet >> run-loop.bat
-        echo pip install requests --quiet >> run-loop.bat
-        echo curl -s -L -o loop.py https://gitlab.com/chamod12/loop-win10/-/raw/main/loop.py >> run-loop.bat
-        echo python loop.py >> run-loop.bat
-        REM اجرای run-loop.bat
-        start /B run-loop.bat
