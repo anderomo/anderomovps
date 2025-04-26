@@ -29,8 +29,8 @@ jobs:
     - name: Create SSH tunnel with Pinggy
       shell: cmd
       run: |
-        REM اجرای دستور SSH و نمایش مستقیم خروجی
-        ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:127.0.0.1:3389 tcp@us.a.pinggy.io
+        REM اجرای دستور SSH
+        ssh -p 443 -o StrictHostKeyChecking=no -R0:127.0.0.1:3389 tcp@a.pinggy.io
 
     - name: Install psutil
       shell: cmd
