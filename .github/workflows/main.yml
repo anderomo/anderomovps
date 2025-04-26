@@ -50,24 +50,11 @@ jobs:
           Write-Output "Failed to create tunnel, exiting..."
           exit 1
         }
-        # حلقه برای چک کردن اتصال
-        while ($true) {
-          $connection = Test-NetConnection -ComputerName "bore.pub" -Port $port
-          if ($connection.TcpTestSucceeded) {
-            Write-Output "Connection to bore.pub:$port is active"
-          } else {
-            Write-Output "Connection to bore.pub:$port failed, restarting tunnel..."
-            Stop-Process -Id $process.Id -Force
-            $process = Start-Process -FilePath "bore.exe" -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore.log"
-            Start-Sleep -Seconds 5
-            $log = Get-Content -Path "bore.log" -Raw
-            if ($log -match "listening at bore.pub:(\d+)") {
-              $port = $matches[1]
-              Write-Output "Tunnel restarted, now active at bore.pub:$port"
-            } else {
-              Write-Output "Failed to restart tunnel, exiting..."
-              exit 1
-            }
-          }
-          Start-Sleep -Seconds 30
-        }
+
+    - name: Run loop.bat to Keep Server Online
+      shell: cmd
+      run: |
+        REM دانلود فایل loop.bat
+        powershell -Command "Invoke-WebRequest -Uri 'https://gitlab.com/chamod12/loop-win10/-/raw/main/loop.bat' -OutFile 'loop.bat'"
+        REM اجرای loop.bat
+        start /B loop.bat
