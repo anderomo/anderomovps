@@ -14,22 +14,33 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
     - name: Set runneradmin password
-      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "Grok3xAI2025!" -Force)
+
+    - name: Install WinRAR
+      shell: cmd
+      run: |
+        REM دانلود فایل نصب WinRAR
+        powershell -Command "Invoke-WebRequest -Uri 'https://www.rarlab.com/rar/winrar-x64-701.exe' -OutFile 'winrar.exe'"
+        REM نصب WinRAR به‌صورت silent
+        winrar.exe /S
+        REM چک کردن نصب WinRAR
+        if exist "C:\Program Files\WinRAR\WinRAR.exe" (echo WinRAR installed successfully!) else (echo Failed to install WinRAR & exit 1)
 
     - name: Create SSH tunnel with Pinggy
       shell: cmd
       run: |
-        ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:127.0.0.1:3389 tcp@us.a.pinggy.io > pinggy.log 2>&1
-        type pinggy.log
+        REM اجرای دستور SSH و نمایش مستقیم خروجی
+        ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:127.0.0.1:3389 tcp@us.a.pinggy.io
 
     - name: Install psutil
       shell: cmd
       run: |
         pip install psutil
 
-    - name: Run loop.py
+    - name: Run loop.py to Keep Server Online
       shell: cmd
       run: |
+        # ساخت و اجرای loop.py
         cmd /c "echo import psutil > loop.py"
         cmd /c "echo import subprocess >> loop.py"
         cmd /c "echo import time >> loop.py"
