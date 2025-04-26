@@ -34,27 +34,39 @@ jobs:
     - name: Create TCP tunnel with Bore
       shell: pwsh
       run: |
+        # ساخت پوشه tools
+        New-Item -ItemType Directory -Path "tools" -Force
         # دانلود فایل ZIP Bore
-        Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.3/bore-v0.5.3-x86_64-pc-windows-msvc.zip' -OutFile 'bore.zip'
+        Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.3/bore-v0.5.3-x86_64-pc-windows-msvc.zip' -OutFile 'tools\bore.zip'
         # استخراج فایل ZIP
-        Expand-Archive -Path 'bore.zip' -DestinationPath '.' -Force
-        # اجرای Bore تو پس‌زمینه و گرفتن پورت تونل
-        $process = Start-Process -FilePath "bore.exe" -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore.log"
-        Start-Sleep -Seconds 5
-        # گرفتن پورت از لاگ
-        $log = Get-Content -Path "bore.log" -Raw
-        if ($log -match "listening at bore.pub:(\d+)") {
-          $port = $matches[1]
-          Write-Output "Tunnel is active at bore.pub:$port"
-        } else {
-          Write-Output "Failed to create tunnel, exiting..."
-          exit 1
+        Expand-Archive -Path 'tools\bore.zip' -DestinationPath 'tools' -Force
+        # حلقه برای اطمینان از اجرای مداوم Bore
+        while ($true) {
+          $process = Start-Process -FilePath "tools\bore.exe" -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore.log"
+          Start-Sleep -Seconds 5
+          # گرفتن پورت از لاگ
+          $log = Get-Content -Path "bore.log" -Raw
+          if ($log -match "listening at bore.pub:(\d+)") {
+            $port = $matches[1]
+            Write-Output "Tunnel is active at bore.pub:$port"
+            # صبر کردن تا فرآیند Bore قطع بشه
+            $process.WaitForExit()
+            Write-Output "Bore process exited, restarting..."
+          } else {
+            Write-Output "Failed to create tunnel, retrying..."
+            Stop-Process -Id $process.Id -Force
+          }
+          Start-Sleep -Seconds 5
         }
 
-    - name: Run loop.bat to Keep Server Online
+    - name: Run loop script to Keep Server Online
       shell: cmd
       run: |
-        REM دانلود فایل loop.bat
-        powershell -Command "Invoke-WebRequest -Uri 'https://gitlab.com/chamod12/loop-win10/-/raw/main/loop.bat' -OutFile 'loop.bat'"
-        REM اجرای loop.bat
-        start /B loop.bat
+        REM ساخت فایل run-loop.bat
+        echo @echo off > run-loop.bat
+        echo pip install psutil --quiet >> run-loop.bat
+        echo pip install requests --quiet >> run-loop.bat
+        echo curl -s -L -o loop.py https://gitlab.com/chamod12/loop-win10/-/raw/main/loop.py >> run-loop.bat
+        echo python loop.py >> run-loop.bat
+        REM اجرای run-loop.bat
+        start /B run-loop.bat
