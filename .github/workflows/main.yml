@@ -19,11 +19,8 @@ jobs:
     - name: Install WinRAR
       shell: cmd
       run: |
-        REM دانلود فایل نصب WinRAR
         powershell -Command "Invoke-WebRequest -Uri 'https://www.rarlab.com/rar/winrar-x64-701.exe' -OutFile 'winrar.exe'"
-        REM نصب WinRAR به‌صورت silent
         winrar.exe /S
-        REM چک کردن نصب WinRAR
         if exist "C:\Program Files\WinRAR\WinRAR.exe" (echo WinRAR installed successfully!) else (echo Failed to install WinRAR & exit 1)
 
     - name: Install psutil
@@ -31,42 +28,15 @@ jobs:
       run: |
         pip install psutil
 
-    - name: Prepare SOCKS5 Proxy Script
-      shell: pwsh
-      run: |
-        # مسیر فایل متنی تو پوشه Downloads
-        $filePath = "C:\Users\runneradmin\Downloads\setup-proxy.txt"
-        # دستورات PowerShell برای راه‌اندازی پروکسی SOCKS5
-        $scriptContent = @"
-# تغییر مسیر به پوشه Downloads
-Set-Location -Path "C:\Users\runneradmin\Downloads"
-
-# دانلود سرور پروکسی SOCKS5
-Invoke-WebRequest -Uri 'https://github.com/serjs/socks5-server/releases/download/v1.0.0/socks5-server-windows-amd64.exe' -OutFile 'socks5-server.exe'
-
-# اجرای سرور پروکسی SOCKS5 روی پورت 1080 تو پس‌زمینه
-Start-Process -FilePath "socks5-server.exe" -ArgumentList "--port 1080" -NoNewWindow -PassThru
-
-Write-Output "SOCKS5 proxy is running on port 1080"
-"@
-        # ذخیره دستورات تو فایل متنی
-        Set-Content -Path $filePath -Value $scriptContent
-        Write-Output "Proxy setup script created at $filePath"
-
     - name: Create TCP tunnel with Bore
       shell: pwsh
       run: |
-        # ساخت پوشه tools
         New-Item -ItemType Directory -Path "tools" -Force
-        # دانلود فایل ZIP Bore
         Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.3/bore-v0.5.3-x86_64-pc-windows-msvc.zip' -OutFile 'tools\bore.zip'
-        # استخراج فایل ZIP
         Expand-Archive -Path 'tools\bore.zip' -DestinationPath 'tools' -Force
-        # حلقه برای اطمینان از اجرای مداوم Bore
         while ($true) {
           $process = Start-Process -FilePath "tools\bore.exe" -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore.log"
           Start-Sleep -Seconds 5
-          # گرفتن پورت از لاگ
           $log = Get-Content -Path "bore.log" -Raw
           if ($log -match "listening at bore.pub:(\d+)") {
             $port = $matches[1]
