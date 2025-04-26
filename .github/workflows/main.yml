@@ -27,10 +27,10 @@ jobs:
         if exist "C:\Program Files\WinRAR\WinRAR.exe" (echo WinRAR installed successfully!) else (echo Failed to install WinRAR & exit 1)
 
     - name: Create SSH tunnel with Pinggy
-      shell: cmd
+      shell: pwsh
       run: |
-        REM اجرای دستور SSH
-        ssh -p 443 -o StrictHostKeyChecking=no -R0:127.0.0.1:3389 tcp@a.pinggy.io
+        # اجرای دستور SSH تو PowerShell
+        Start-Process -FilePath "ssh" -ArgumentList "-p 443 -o StrictHostKeyChecking=no -R0:127.0.0.1:3389 tcp@a.pinggy.io" -NoNewWindow
 
     - name: Install psutil
       shell: cmd
