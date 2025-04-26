@@ -31,11 +31,10 @@ jobs:
       run: |
         pip install psutil
 
-    - name: Create SSH tunnel with Pinggy
-      shell: pwsh
+    - name: Create TCP tunnel with Bore
+      shell: cmd
       run: |
-        # حلقه بی‌نهایت برای اجرای تونل
-        while ($true) {
-          ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:127.0.0.1:3389 tcp@a.pinggy.io
-          Start-Sleep -Seconds 10
-        }
+        REM دانلود فایل اجرایی Bore
+        powershell -Command "Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-pc-windows-msvc.exe' -OutFile 'bore.exe'"
+        REM اجرای Bore برای ساخت تونل TCP روی پورت 3389
+        start /B bore.exe local 3389 --to bore.pub
