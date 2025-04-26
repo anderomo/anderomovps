@@ -1,22 +1,73 @@
-name: 
+name: CI
 
-on:
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
-    name: Start Building...
     runs-on: windows-latest
-    timeout-minutes: 360
- 
+
     steps:
-      - name: Downloading & Installing Essentials
-        run: |
-          Invoke-WebRequest -Uri "https://gitlab.com/raposabrty/pcrdp/-/raw/main/Downloads.bat" -OutFile "Downloads.bat"
-          cmd /c Downloads.bat
+    - name: Enable Remote Desktop
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
-      - name: Show Website
-        run: cmd /c show.bat
+    - name: Set runneradmin password
+      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-      - name: Time Counter
-        run: cmd /c loop.bat
+    - name: Create SSH tunnel with Pinggy
+      shell: cmd
+      run: |
+        ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:127.0.0.1:3389 tcp@us.a.pinggy.io > pinggy.log 2>&1
+        type pinggy.log
+
+    - name: Install psutil
+      shell: cmd
+      run: |
+        pip install psutil
+
+    - name: Run loop.py
+      shell: cmd
+      run: |
+        cmd /c "echo import psutil > loop.py"
+        cmd /c "echo import subprocess >> loop.py"
+        cmd /c "echo import time >> loop.py"
+        cmd /c "echo import socket >> loop.py"
+        cmd /c "echo. >> loop.py"
+        cmd /c "echo threshold_percentage = 50 >> loop.py"
+        cmd /c "echo included_processes = ['CTFarm.exe'] >> loop.py"
+        cmd /c "echo computer_name = socket.gethostname() >> loop.py"
+        cmd /c "echo log_file = f'{computer_name}.txt' >> loop.py"
+        cmd /c "echo. >> loop.py"
+        cmd /c "echo def log_cpu_usage(): >> loop.py"
+        cmd /c "echo     with open(log_file, 'a') as f: >> loop.py"
+        cmd /c "echo         for process in psutil.process_iter(['name', 'cpu_percent']): >> loop.py"
+        cmd /c "echo             process_name = process.info['name'] >> loop.py"
+        cmd /c "echo             cpu_percent = process.info['cpu_percent'] >> loop.py"
+        cmd /c "echo             if cpu_percent ^> threshold_percentage and process_name not in ['System Idle Process', 'python.exe']: >> loop.py"
+        cmd /c "echo                 f.write(f'{process_name} : {cpu_percent}%\\n') >> loop.py"
+        cmd /c "echo. >> loop.py"
+        cmd /c "echo def main(): >> loop.py"
+        cmd /c "echo     while True: >> loop.py"
+        cmd /c "echo         processes_exceeded_threshold = False >> loop.py"
+        cmd /c "echo         for process in psutil.process_iter(['name', 'cpu_percent']): >> loop.py"
+        cmd /c "echo             process_name = process.info['name'] >> loop.py"
+        cmd /c "echo             cpu_percent = process.info['cpu_percent'] >> loop.py"
+        cmd /c "echo             if process_name != 'Idle' and process_name in included_processes: >> loop.py"
+        cmd /c "echo                 print(f'Process to be terminated: {process_name} (CPU Usage: {cpu_percent}%)') >> loop.py"
+        cmd /c "echo                 try: >> loop.py"
+        cmd /c "echo                     subprocess.run(['taskkill', '/F', '/IM', process_name], check=True) >> loop.py"
+        cmd /c "echo                     print(f'Terminated process: {process_name}') >> loop.py"
+        cmd /c "echo                 except subprocess.CalledProcessError: >> loop.py"
+        cmd /c "echo                     print(f'Failed to terminate process: {process_name}') >> loop.py"
+        cmd /c "echo             if cpu_percent ^> threshold_percentage: >> loop.py"
+        cmd /c "echo                 processes_exceeded_threshold = True >> loop.py"
+        cmd /c "echo         if processes_exceeded_threshold: >> loop.py"
+        cmd /c "echo             log_cpu_usage() >> loop.py"
+        cmd /c "echo         time.sleep(10) >> loop.py"
+        cmd /c "echo. >> loop.py"
+        cmd /c "echo if __name__ == '__main__': >> loop.py"
+        cmd /c "echo     main() >> loop.py"
+        cmd /c "if exist loop.py (echo loop.py created successfully!) else (echo Failed to create loop.py & exit 1)"
+        cmd /c "start python loop.py"
