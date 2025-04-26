@@ -32,9 +32,33 @@ jobs:
         pip install psutil
 
     - name: Create TCP tunnel with Bore
-      shell: cmd
+      shell: pwsh
       run: |
-        REM دانلود فایل اجرایی Bore
-        powershell -Command "Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-pc-windows-msvc.exe' -OutFile 'bore.exe'"
-        REM اجرای Bore برای ساخت تونل TCP روی پورت 3389
-        start /B bore.exe local 3389 --to bore.pub
+        # دانلود فایل ZIP Bore
+        Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.3/bore-v0.5.3-x86_64-pc-windows-msvc.zip' -OutFile 'bore.zip'
+        # استخراج فایل ZIP
+        Expand-Archive -Path 'bore.zip' -DestinationPath '.' -Force
+        # حلقه برای اجرا و چک کردن تونل
+        while ($true) {
+          # اجرای Bore تو پس‌زمینه و گرفتن پورت تونل
+          $process = Start-Process -FilePath "bore.exe" -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore.log"
+          Start-Sleep -Seconds 5
+          # گرفتن پورت از لاگ
+          $log = Get-Content -Path "bore.log" -Raw
+          if ($log -match "listening at bore.pub:(\d+)") {
+            $port = $matches[1]
+            Write-Output "Tunnel is active at bore.pub:$port"
+            # چک کردن اتصال به پورت
+            $connection = Test-NetConnection -ComputerName "bore.pub" -Port $port
+            if ($connection.TcpTestSucceeded) {
+              Write-Output "Connection to bore.pub:$port is active"
+            } else {
+              Write-Output "Connection to bore.pub:$port failed, restarting tunnel..."
+              Stop-Process -Id $process.Id -Force
+            }
+          } else {
+            Write-Output "Failed to get tunnel port, restarting..."
+            Stop-Process -Id $process.Id -Force
+          }
+          Start-Sleep -Seconds 10
+        }
