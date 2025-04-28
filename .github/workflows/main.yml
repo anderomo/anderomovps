@@ -28,6 +28,25 @@ jobs:
       run: |
         pip install psutil
 
+    - name: Setup 3proxy SOCKS5 Proxy
+      shell: pwsh
+      run: |
+        Set-Location -Path "C:\Users\runneradmin\Downloads"
+        Invoke-WebRequest -Uri 'https://github.com/3proxy/3proxy/releases/download/0.9.5/3proxy-0.9.5-arm64.zip' -OutFile '3proxy.zip'
+        Expand-Archive -Path '3proxy.zip' -DestinationPath '.' -Force
+        $proxyExe = Get-ChildItem -Path "C:\Users\runneradmin\Downloads" -Filter "3proxy.exe" -Recurse -File | Select-Object -First 1
+        if ($proxyExe) {
+          $proxyPath = $proxyExe.FullName
+          $proxyDir = Split-Path -Path $proxyPath -Parent
+          Set-Location -Path $proxyDir
+          Set-Content -Path '3proxy.cfg' -Value "socks -p1080"
+          Start-Process -FilePath $proxyPath -ArgumentList "3proxy.cfg" -NoNewWindow -PassThru
+          Write-Output "SOCKS5 proxy is running on port 1080"
+        } else {
+          Write-Error "3proxy.exe not found!"
+          exit 1
+        }
+
     - name: Create TCP tunnel with Bore
       shell: pwsh
       run: |
