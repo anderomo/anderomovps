@@ -28,43 +28,63 @@ jobs:
       run: |
         pip install psutil
 
-    - name: Setup 3proxy SOCKS5 Proxy
+    - name: Setup L2TP/IPSec VPN with RRAS
       shell: pwsh
       run: |
-        Set-Location -Path "C:\Users\runneradmin\Downloads"
-        Invoke-WebRequest -Uri 'https://github.com/3proxy/3proxy/releases/download/0.9.5/3proxy-0.9.5-x64.zip' -OutFile '3proxy.zip'
-        Expand-Archive -Path '3proxy.zip' -DestinationPath '.' -Force
-        $proxyExe = Get-ChildItem -Path "C:\Users\runneradmin\Downloads" -Filter "3proxy.exe" -Recurse -File | Select-Object -First 1
-        if ($proxyExe) {
-          $proxyPath = $proxyExe.FullName
-          $proxyDir = Split-Path -Path $proxyPath -Parent
-          Set-Location -Path $proxyDir
-          Set-Content -Path '3proxy.cfg' -Value "socks -p1080"
-          Start-Process -FilePath $proxyPath -ArgumentList "3proxy.cfg" -NoNewWindow -PassThru
-          Write-Output "SOCKS5 proxy is running on port 1080"
-        } else {
-          Write-Error "3proxy.exe not found!"
-          exit 1
-        }
+        # Install RRAS role with VPN and NAT
+        Install-WindowsFeature -Name RemoteAccess -IncludeManagementTools
+        Install-WindowsFeature -Name DirectAccess-VPN -IncludeManagementTools
+        Install-WindowsFeature -Name Routing -IncludeManagementTools
 
-    - name: Create TCP tunnel with Bore
+        # Configure RRAS for VPN
+        Import-Module RemoteAccess
+        Install-RemoteAccess -VpnType Vpn
+
+        # Set up IP range for VPN clients (10.0.0.100 - 10.0.0.200)
+        Set-VpnIpAddressAssignment -IPAddressRange "10.0.0.100", "10.0.0.200"
+
+        # Enable NAT for internet access
+        netsh routing ip nat install
+        netsh routing ip nat add interface "Ethernet"
+        netsh routing ip nat set interface "Ethernet" mode=full
+
+        # Configure L2TP/IPSec with a pre-shared key
+        Set-VpnServerConfiguration -L2tpPsk "MySecurePSK2025!"
+
+        # Create a VPN user
+        net user vpnuser MyVpnPass2025! /add
+        net localgroup "Remote Desktop Users" vpnuser /add
+
+        # Allow L2TP/IPSec ports in firewall
+        netsh advfirewall firewall add rule name="Allow L2TP" protocol=UDP dir=in localport=1701 action=allow
+        netsh advfirewall firewall add rule name="Allow IPSec" protocol=UDP dir=in localport=500 action=allow
+        netsh advfirewall firewall add rule name="Allow IPSec NAT-T" protocol=UDP dir=in localport=4500 action=allow
+
+        Write-Output "L2TP/IPSec VPN is set up with PSK: MySecurePSK2025! and user: vpnuser/MyVpnPass2025!"
+
+    - name: Create TCP tunnel with Bore for VPN ports
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Path "tools" -Force
         Invoke-WebRequest -Uri 'https://github.com/ekzhang/bore/releases/download/v0.5.3/bore-v0.5.3-x86_64-pc-windows-msvc.zip' -OutFile 'tools\bore.zip'
         Expand-Archive -Path 'tools\bore.zip' -DestinationPath 'tools' -Force
-        while ($true) {
-          $process = Start-Process -FilePath "tools\bore.exe" -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore.log"
-          Start-Sleep -Seconds 5
-          $log = Get-Content -Path "bore.log" -Raw
-          if ($log -match "listening at bore.pub:(\d+)") {
-            $port = $matches[1]
-            Write-Output "Tunnel is active at bore.pub:$port"
-            $process.WaitForExit()
-            Write-Output "Bore process exited, restarting..."
-          } else {
-            Write-Output "Failed to create tunnel, retrying..."
-            Stop-Process -Id $process.Id -Force
-          }
-          Start-Sleep -Seconds 5
+        # Start tunnels for L2TP (1701), IPSec (500), and NAT-T (4500)
+        Start-Process -FilePath "tools\bore.exe" -ArgumentList "local 1701 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore_l2tp.log"
+        Start-Process -FilePath "tools\bore.exe" -ArgumentList "local 500 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore_ipsec.log"
+        Start-Process -FilePath "tools\bore.exe" -ArgumentList "local 4500 --to bore.pub" -NoNewWindow -PassThru -RedirectStandardOutput "bore_nat.log"
+        Start-Sleep -Seconds 5
+        $l2tpLog = Get-Content -Path "bore_l2tp.log" -Raw
+        $ipsecLog = Get-Content -Path "bore_ipsec.log" -Raw
+        $natLog = Get-Content -Path "bore_nat.log" -Raw
+        if ($l2tpLog -match "listening at bore.pub:(\d+)") {
+          $l2tpPort = $matches[1]
+          Write-Output "L2TP tunnel is active at bore.pub:$l2tpPort"
+        }
+        if ($ipsecLog -match "listening at bore.pub:(\d+)") {
+          $ipsecPort = $matches[1]
+          Write-Output "IPSec tunnel is active at bore.pub:$ipsecPort"
+        }
+        if ($natLog -match "listening at bore.pub:(\d+)") {
+          $natPort = $matches[1]
+          Write-Output "NAT-T tunnel is active at bore.pub:$natPort"
         }
