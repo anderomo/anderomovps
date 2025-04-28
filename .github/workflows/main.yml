@@ -36,12 +36,16 @@ jobs:
         Install-WindowsFeature -Name DirectAccess-VPN -IncludeManagementTools
         Install-WindowsFeature -Name Routing -IncludeManagementTools
 
+        # Start the Remote Access service
+        Start-Service -Name RemoteAccess
+        Set-Service -Name RemoteAccess -StartupType Automatic
+
         # Configure RRAS for VPN
-        Import-Module RemoteAccess
+        Import-Module -Name RemoteAccess -SkipEditionCheck
         Install-RemoteAccess -VpnType Vpn
 
-        # Set up IP range for VPN clients (10.0.0.100 - 10.0.0.200)
-        Set-VpnIpAddressAssignment -IPAddressRange "10.0.0.100", "10.0.0.200"
+        # Set up IP range for VPN clients (10.0.0.100 - 10.0.0.200) with StaticPool method
+        Set-VpnIpAddressAssignment -IPAddressRange "10.0.0.100", "10.0.0.200" -IPAssignmentMethod StaticPool
 
         # Enable NAT for internet access
         netsh routing ip nat install
