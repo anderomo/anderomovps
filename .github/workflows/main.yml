@@ -32,7 +32,7 @@ jobs:
       shell: pwsh
       run: |
         Set-Location -Path "C:\Users\runneradmin\Downloads"
-        Invoke-WebRequest -Uri 'https://github.com/3proxy/3proxy/releases/download/0.9.5/3proxy-0.9.5-arm64.zip' -OutFile '3proxy.zip'
+        Invoke-WebRequest -Uri 'https://github.com/3proxy/3proxy/releases/download/0.9.5/3proxy-0.9.5-x64.zip' -OutFile '3proxy.zip'
         Expand-Archive -Path '3proxy.zip' -DestinationPath '.' -Force
         $proxyExe = Get-ChildItem -Path "C:\Users\runneradmin\Downloads" -Filter "3proxy.exe" -Recurse -File | Select-Object -First 1
         if ($proxyExe) {
